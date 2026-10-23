@@ -58,6 +58,9 @@ jobs:
         run: |
           mkdir -p ../ws
           export WP="$(realpath ../ws)"
+          # The mirror-goog-main-llvm-toolchain-source branch no longer carries clang-r563880.
+          sed -i 's#+archive/mirror-goog-main-llvm-toolchain-source/#+archive/refs/heads/android16-qpr2-release/#' build/ckbuild.sh
+          grep -n 'AOSP_CLANG_URL=' build/ckbuild.sh
           bash build/ckbuild.sh -ckR
           ls -l build/*.zip
 
