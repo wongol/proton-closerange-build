@@ -1,4 +1,4 @@
-name: Proton v6.1.0 + close_range (KSU)
+name: Proton v6.1.0 (48bd510c) + close_range (KSU)
 
 on:
   push:
@@ -24,7 +24,8 @@ jobs:
           git clone --filter=blob:none --shallow-since=2026-01-01 --no-single-branch \
             https://github.com/ProtonKernel/Proton.git kernel
           cd kernel
-          git checkout -B closerange v6.1.0
+          # The v6.1.0 tag points at a 2025-12 commit; the official v6.1.0 release was built from 48bd510c.
+          git checkout -B closerange 48bd510c28f6
           git config user.email "ci@local"
           git config user.name "ci"
 
@@ -35,7 +36,7 @@ jobs:
           pick() { git cherry-pick -x "$1"; }
           pick ddfdedef1447   # UPSTREAM: open: add close_range()
           pick 82b901a91c74   # UPSTREAM: close_range: add CLOSE_RANGE_UNSHARE
-          # BACKPORT: arch: wire-up close_range() conflicts with process_madvise (absent in v6.1.0);
+          # BACKPORT: arch: wire-up close_range() conflicts with process_madvise (absent in this base);
           # apply the arm64 parts by hand.
           sed -i '/^__SYSCALL(__NR_clone3, sys_clone3)$/{n;s/^#endif$/#endif\n#define __NR_close_range 436\n__SYSCALL(__NR_close_range, sys_close_range)/}' include/uapi/asm-generic/unistd.h
           sed -i 's/^#define __NR_syscalls 436$/#define __NR_syscalls 437/' include/uapi/asm-generic/unistd.h
@@ -43,7 +44,7 @@ jobs:
           sed -i 's/^#define __NR_compat_syscalls\t\t436$/#define __NR_compat_syscalls\t\t437/' arch/arm64/include/asm/unistd.h
           git add include/uapi/asm-generic/unistd.h arch/arm64/include/asm/unistd32.h arch/arm64/include/asm/unistd.h
           git commit -q -m "BACKPORT: arch: wire-up close_range() (arm64 only)" \
-            -m "(cherry picked from commit 5714efb5b1c5, conflicts resolved for v6.1.0)"
+            -m "(cherry picked from commit 5714efb5b1c5, conflicts resolved for v6.1.0 base)"
           for c in f5c86606c51e cebb8f6e99d6 65453d09bc8d 6365313ba30a 0466cde0e8fa e628a10eab8a 14d8a61072a4; do
             pick "$c"
           done
@@ -51,7 +52,7 @@ jobs:
           grep -n '__NR_syscalls 437' include/uapi/asm-generic/unistd.h
           grep -n '__NR_compat_syscalls.*437' arch/arm64/include/asm/unistd.h
           grep -n 'CLOSE_RANGE_CLOEXEC' include/uapi/linux/close_range.h
-          git log --oneline v6.1.0..HEAD
+          git log --oneline 48bd510c28f6..HEAD
 
       - name: Build (KernelSU, same as official KSU release)
         working-directory: kernel
