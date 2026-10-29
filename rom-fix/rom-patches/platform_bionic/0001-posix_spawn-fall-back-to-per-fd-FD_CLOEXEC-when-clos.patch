@@ -1,0 +1,66 @@
+From 8ac0f1aa161ceec9e80eb4c86b1294435e1b82b3 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Thu, 29 Oct 2026 13:19:51 +0000
+Subject: [PATCH] posix_spawn: fall back to per-fd FD_CLOEXEC when
+ close_range() fails
+
+POSIX_SPAWN_CLOEXEC_DEFAULT uses close_range(3, ~0U, CLOSE_RANGE_CLOEXEC),
+which needs Linux 5.11+ (or an ACK 5.10-T kernel). On older vendor kernels
+(e.g. 5.4) it returns ENOSYS/EINVAL and the child exits with 127 before
+exec. On a GSI this breaks every caller of the flag, including clatd
+(system_server) and dnsmasq (netd): no IPv4 on IPv6-only carriers via
+464xlat, and no tethering DNS.
+
+lineage-23.0 still had this fallback; it was dropped in lineage-23.2.
+Restore it unchanged: try close_range() first and, if it fails, mark
+each fd from 3 up to RLIMIT_NOFILE close-on-exec with fcntl().
+---
+ libc/bionic/spawn.cpp | 25 +++++++++++++++++++++++--
+ 1 file changed, 23 insertions(+), 2 deletions(-)
+
+diff --git a/libc/bionic/spawn.cpp b/libc/bionic/spawn.cpp
+index f1b8eb0..d97057f 100644
+--- a/libc/bionic/spawn.cpp
++++ b/libc/bionic/spawn.cpp
+@@ -42,6 +42,28 @@
+ 
+ #include "private/ScopedSignalBlocker.h"
+ 
++static int set_cloexec(int i) {
++  int v = fcntl(i, F_GETFD);
++  if (v == -1) return -1;  // almost certainly: errno == EBADF
++  return fcntl(i, F_SETFD, v | FD_CLOEXEC);
++}
++
++// mark all open fds except stdin/out/err as close-on-exec
++static int cloexec_except_stdioe() {
++  // requires 5.11+ or ACK 5.10-T kernel, otherwise returns ENOSYS or EINVAL
++  if (!close_range(3, ~0U, CLOSE_RANGE_CLOEXEC)) return 0;
++
++  // unfortunately getrlimit can lie:
++  // - both soft and hard limits can be lowered to 0, with fds still open, so it can underestimate
++  // - in practice it usually is some really large value (like 32K or more)
++  //   even though only a handful of small fds are actually open (ie. < 500),
++  //   this results in poor performance when trying to act on all possibly open fds
++  struct rlimit m;
++  int max = getrlimit(RLIMIT_NOFILE, &m) ? 1000000 : m.rlim_max;
++  for (int i = 3; i < max; ++i) set_cloexec(i);
++  return 0;
++}
++
+ enum Action {
+   kOpen,
+   kClose,
+@@ -153,8 +175,7 @@ static void ApplyAttrs(short flags, const posix_spawnattr_t* attr) {
+   }
+ 
+   if ((flags & POSIX_SPAWN_CLOEXEC_DEFAULT) != 0) {
+-    // mark all open fds except stdin/out/err as close-on-exec
+-    if (close_range(3, ~0U, CLOSE_RANGE_CLOEXEC)) _exit(127);
++    if (cloexec_except_stdioe()) _exit(127);
+   }
+ }
+ 
+-- 
+2.43.0
+

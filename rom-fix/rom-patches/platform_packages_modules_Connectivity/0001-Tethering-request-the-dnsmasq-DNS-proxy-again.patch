@@ -1,0 +1,44 @@
+From b18fa7e46bd551e16b1bc21723f8f37087287eaf Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Thu, 29 Oct 2026 13:20:16 +0000
+Subject: [PATCH] Tethering: request the dnsmasq DNS proxy again
+
+TrebleDroid-staging patch 0006 passes usingLegacyDnsProxy=false to
+tetherStart(). That does not switch to another resolver: with the
+NetworkStack DHCP server (no legacy DHCP ranges), netd's
+TetherController::startTethering() returns early without starting
+dnsmasq, while IpServer still hands out the hotspot address as the
+DNS server. Nothing listens on port 53, so tethered clients get
+no DNS ("connected, no internet").
+
+The reason dnsmasq "did not start" on GSI was posix_spawn() exiting
+127 when close_range() is missing on pre-5.11 kernels; that is fixed
+in bionic by the per-fd FD_CLOEXEC fallback. Go back to the AOSP
+behaviour and request the legacy DNS proxy in both the first call
+and the retry path.
+---
+ .../src/com/android/networkstack/tethering/Tethering.java     | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/Tethering/src/com/android/networkstack/tethering/Tethering.java b/Tethering/src/com/android/networkstack/tethering/Tethering.java
+index c1c44f9..ed47522 100644
+--- a/Tethering/src/com/android/networkstack/tethering/Tethering.java
++++ b/Tethering/src/com/android/networkstack/tethering/Tethering.java
+@@ -2070,12 +2070,12 @@ public class Tethering {
+             final String[] dhcpRanges = cfg.useLegacyDhcpServer()
+                     ? cfg.legacyDhcpRanges : new String[0];
+             try {
+-                NetdUtils.tetherStart(mNetd, false /** usingLegacyDnsProxy */, dhcpRanges);
++                NetdUtils.tetherStart(mNetd, true /** usingLegacyDnsProxy */, dhcpRanges);
+             } catch (RemoteException | ServiceSpecificException e) {
+                 try {
+                     // Stop and retry.
+                     mNetd.tetherStop();
+-                    NetdUtils.tetherStart(mNetd, false /** usingLegacyDnsProxy */, dhcpRanges);
++                    NetdUtils.tetherStart(mNetd, true /** usingLegacyDnsProxy */, dhcpRanges);
+                 } catch (RemoteException | ServiceSpecificException ee) {
+                     mLog.e(ee);
+                     transitionTo(mStartTetheringErrorState);
+-- 
+2.43.0
+
