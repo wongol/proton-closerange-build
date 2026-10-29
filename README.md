@@ -101,7 +101,7 @@ Proton 빌드 스크립트(`build/ckbuild.sh`)가 받는 clang-r563880이 원래
 
 롬에 아래 두 가지가 들어가면 **커널 수정과 DNS 모듈 없이도** 해결됩니다. 제안서와 바로 쓸 수 있는 패치는 [`rom-fix/`](rom-fix/)에 있습니다.
 
-1. **bionic `posix_spawn` 대체 경로 복원**: `close_range`가 실패하면 fd를 하나씩 CLOEXEC 처리합니다. LineageOS 23.0까지 있던 코드가 23.2에서 빠졌습니다.
+1. **bionic `posix_spawn` 대체 경로 복원**: `close_range`가 실패하면 fd를 하나씩 CLOEXEC 처리합니다. LineageOS 23.0까지 있던 코드가 23.2에서 빠졌습니다. → **CarrotCast 1.6.7에 반영됨** (릴리스 노트 기준)
 2. **GSI 패치 0006 되돌리기**: 테더링이 다시 dnsmasq DNS 프록시를 요청하게 합니다.
 
 ## 쓰는 방법

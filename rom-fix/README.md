@@ -10,6 +10,8 @@
 | 커널 5.4에서 `clatd`·`dnsmasq`가 exit 127 → IPv4 없음, 핫스팟 바로 꺼짐 | bionic `posix_spawn` | `close_range` 실패 시 대체 경로 복원 | `rom-patches/platform_bionic/0001-…` |
 | 핫스팟 DNS 응답 없음 ("인터넷 없음") | GSI 패치 `trebledroid-staging/…Connectivity/0006` | 테더링이 다시 dnsmasq DNS 프록시를 요청 | `rom-patches/platform_packages_modules_Connectivity/0001-…` |
 
+> **진행 상황 (2026-10-29):** 1번은 CarrotCast **1.6.7**에 반영됐습니다(릴리스 노트: 구형 커널의 `close_range` 미지원 시 `posix_spawn` FD_CLOEXEC 호환 처리). 방식은 이 폴더의 패치와 다를 수 있습니다. 2번은 릴리스 노트에 언급이 없어 남아 있는 것으로 보고 [이슈 글](issues/carrotcast.md)을 따로 썼습니다.
+
 두 가지가 다 들어가면 **커널 수정과 DNS 우회 모듈이 둘 다 필요 없습니다.**
 `close_range`가 있는 커널(이 저장소의 빌드)을 그대로 써도 문제는 없습니다.
 
